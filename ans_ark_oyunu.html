@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Şans Çarkı - Çember Oyunu</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #0d1117;
+            color: #e6edf3;
+            user-select: none;
+        }
+
+        /* Neon Glow Effects */
+        .neon-glow-green {
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.4);
+        }
+        .neon-glow-red {
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.4);
+        }
+        .neon-glow-blue {
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.5);
+        }
+
+        /* Custom Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 24px;
+            width: 24px;
+            border-radius: 50%;
+            background: #10b981;
+            cursor: pointer;
+            box-shadow: 0 0 10px #10b981;
+            margin-top: -8px;
+            transition: all 0.2s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #34d399;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #374151;
+            border-radius: 4px;
+        }
+
+        /* Custom Scrollbar for History */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1f2937;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-4 md:p-8">
+
+    <!-- Başlık ve İstatistikler -->
+    <header class="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+        <div class="flex items-center gap-3">
+            <div class="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl">
+                <i class="fa-solid fa-dharmachakra text-emerald-400 text-3xl animate-spin" style="animation-duration: 12s;"></i>
+            </div>
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-wide text-white">Şans Çarkı</h1>
+                <p class="text-xs text-gray-400">Çemberi ayarla, ok boyalı alanda dursun!</p>
+            </div>
+        </div>
+
+        <!-- İstatistik Kutuları -->
+        <div class="flex gap-3 bg-gray-900/80 p-2 border border-gray-800 rounded-2xl backdrop-blur-md">
+            <div class="px-4 py-2 text-center border-r border-gray-800">
+                <span class="text-xs text-gray-400 block font-medium">Kazanma</span>
+                <span id="win-count" class="text-xl font-extrabold text-emerald-400">0</span>
+            </div>
+            <div class="px-4 py-2 text-center border-r border-gray-800">
+                <span class="text-xs text-gray-400 block font-medium">Kaybetme</span>
+                <span id="loss-count" class="text-xl font-extrabold text-rose-500">0</span>
+            </div>
+            <div class="px-4 py-2 text-center">
+                <span class="text-xs text-gray-400 block font-medium">Kazanma Oranı</span>
+                <span id="win-rate" class="text-xl font-extrabold text-cyan-400">%0</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Container -->
+    <main class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-8 items-center my-auto">
+        
+        <!-- Sol Panel: Çark Canvas -->
+        <div class="lg:col-span-7 flex flex-col items-center justify-center relative">
+            
+            <!-- Sonuç Bildirim Rozeti -->
+            <div id="result-badge" class="absolute -top-6 z-20 opacity-0 transition-all duration-300 transform -translate-y-2 pointer-events-none">
+                <span class="px-6 py-2 rounded-full font-bold text-base shadow-2xl flex items-center gap-2"></span>
+            </div>
+
+            <!-- Canvas Çark Kapsayıcısı -->
+            <div class="relative w-[300px] h-[300px] sm:w-[380px] sm:h-[380px] flex items-center justify-center my-4">
+                <!-- Dış Işık Efekti -->
+                <div id="glow-ring" class="absolute inset-0 rounded-full border-2 border-emerald-500/20 neon-glow-green transition-all duration-500"></div>
+
+                <!-- Çark Tuvali -->
+                <canvas id="wheelCanvas" width="400" height="400" class="w-full h-full drop-shadow-2xl z-10"></canvas>
+            </div>
+
+            <!-- Durum Mesajı -->
+            <div class="text-center h-6 mt-2">
+                <p id="status-text" class="text-sm font-medium text-gray-400">Şansını seç ve çarkı çevir!</p>
+            </div>
+        </div>
+
+        <!-- Sağ Panel: Oyun Kontrolleri & Geçmiş -->
+        <div class="lg:col-span-5 flex flex-col gap-5 bg-gray-900/60 p-6 border border-gray-800 rounded-3xl backdrop-blur-md">
+            
+            <!-- Ses ve Ayar Butonları -->
+            <div class="flex items-center justify-between pb-3 border-b border-gray-800">
+                <span class="text-sm font-semibold text-gray-300">Kontrol Paneli</span>
+                <button id="sound-btn" class="p-2.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-emerald-400 transition-colors flex items-center justify-center">
+                    <i class="fa-solid fa-volume-high text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Şans Ayar Slider'ı -->
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <label for="chanceSlider" class="text-sm font-medium text-gray-300 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-pie text-emerald-400"></i>
+                        Şans Yüzdesi:
+                    </label>
+                    <span id="chanceValue" class="text-2xl font-black text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-xl border border-emerald-500/20">%50</span>
+                </div>
+                
+                <input type="range" id="chanceSlider" min="1" max="99" value="50" class="w-full">
+
+                <!-- Hazır Yüzde Butonları -->
+                <div class="grid grid-cols-4 gap-2 pt-1">
+                    <button class="preset-btn py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700" data-value="25">%25</button>
+                    <button class="preset-btn py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700" data-value="50">%50</button>
+                    <button class="preset-btn py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700" data-value="75">%75</button>
+                    <button class="preset-btn py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700" data-value="90">%90</button>
+                </div>
+            </div>
+
+            <!-- Ana Çevirme Butonu -->
+            <button id="spin-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-extrabold text-lg shadow-lg hover:shadow-emerald-500/25 transition-all transform active:scale-95 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-play text-xl"></i>
+                <span>ÇEVİR</span>
+            </button>
+
+            <!-- Geçmiş Hamleler -->
+            <div class="space-y-2 pt-2">
+                <div class="flex justify-between items-center text-xs text-gray-400 font-medium px-1">
+                    <span>Son Hamleler</span>
+                    <button id="clear-history" class="hover:text-gray-200 transition-colors">Temizle</button>
+                </div>
+                <div id="history-list" class="h-32 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                    <p class="text-xs text-gray-500 text-center py-8">Henüz çevirme yapılmadı.</p>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-6 text-center text-xs text-gray-500">
+        <p>HTML5 Canvas ve Web Audio API ile hazırlanmıştır • Kolay Şans Simülatörü</p>
+    </footer>
+
+    <script>
+        // Web Audio API Ses Yöneticisi
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTick() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.04);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.04);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+
+            playWin() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+
+                    gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.3);
+                });
+            }
+
+            playLoss() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [300, 260, 220, 180];
+
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.2);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start(now + idx * 0.1);
+                    osc.stop(now + idx * 0.1 + 0.2);
+                });
+            }
+        }
+
+        const sounds = new SoundFX();
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const chanceSlider = document.getElementById('chanceSlider');
+        const chanceValueDisplay = document.getElementById('chanceValue');
+        const spinBtn = document.getElementById('spin-btn');
+        const statusText = document.getElementById('status-text');
+        const resultBadge = document.getElementById('result-badge');
+        const glowRing = document.getElementById('glow-ring');
+        const soundBtn = document.getElementById('sound-btn');
+
+        // İstatistikler
+        let wins = 0;
+        let losses = 0;
+
+        // Çark Durumu
+        let chancePercentage = parseInt(chanceSlider.value);
+        let arrowAngle = 0; // Radyan cinsinden okun açısı (0 rad = saat 3 yönü)
+        let isSpinning = false;
+        let lastTickAngle = 0;
+
+        // Çember Ayarları
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const outerRadius = 160;
+        const innerRadius = 100;
+
+        function drawWheel() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Başlangıç Açısı: Saat 12 yönünden başlamak için -PI/2
+            const startAngle = -Math.PI / 2;
+            const coloredAngleSpan = (chancePercentage / 100) * (2 * Math.PI);
+            const coloredEndAngle = startAngle + coloredAngleSpan;
+            const fullEndAngle = startAngle + 2 * Math.PI;
+
+            // 1. BOYA ALANI (Yeşil / Kazanç Bölgesi)
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, outerRadius, startAngle, coloredEndAngle, false);
+            ctx.arc(centerX, centerY, innerRadius, coloredEndAngle, startAngle, true);
+            ctx.closePath();
+            
+            // Yeşil Gradyan
+            const greenGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
+            greenGradient.addColorStop(0, '#10b981');
+            greenGradient.addColorStop(1, '#059669');
+            ctx.fillStyle = greenGradient;
+            ctx.fill();
+
+            // Yeşil Kenarlık Parıltısı
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#34d399';
+            ctx.stroke();
+
+            // 2. BOYASIZ ALAN (Karanlık Gri / Kayıp Bölgesi)
+            if (chancePercentage < 100) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, outerRadius, coloredEndAngle, fullEndAngle, false);
+                ctx.arc(centerX, centerY, innerRadius, fullEndAngle, coloredEndAngle, true);
+                ctx.closePath();
+
+                // Koyu Gri Gradyan
+                const darkGradient = ctx.createRadialGradient(centerX, centerY, innerRadius, centerX, centerY, outerRadius);
+                darkGradient.addColorStop(0, '#1f2937');
+                darkGradient.addColorStop(1, '#111827');
+                ctx.fillStyle = darkGradient;
+                ctx.fill();
+
+                // Gri Kenarlık
+                ctx.strokeStyle = '#374151';
+                ctx.stroke();
+            }
+
+            // 3. İÇ VE DİŞ HALKA ÇİZGİLERİ
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, outerRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            // 4. MERKEZ SİS / DEKORATİF GÖBEK
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, innerRadius - 10, 0, Math.PI * 2);
+            ctx.fillStyle = '#0d1117';
+            ctx.fill();
+            ctx.strokeStyle = '#1f2937';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 5. MERKEZ OK / İĞNE ÇİZİMİ (Dönen Kısım)
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(arrowAngle);
+
+            // Ok Gölgesi
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+            ctx.shadowBlur = 10;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 4;
+
+            // Ok Gövdesi (Üçgen)
+            ctx.beginPath();
+            ctx.moveTo(outerRadius + 12, 0); // Ok ucu (Dışarı biraz taşar)
+            ctx.lineTo(-20, -14);
+            ctx.lineTo(-10, 0);
+            ctx.lineTo(-20, 14);
+            ctx.closePath();
+
+            const arrowGradient = ctx.createLinearGradient(-20, 0, outerRadius + 12, 0);
+            arrowGradient.addColorStop(0, '#f43f5e');
+            arrowGradient.addColorStop(1, '#fb7185');
+            ctx.fillStyle = arrowGradient;
+            ctx.fill();
+
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Ok Pivot Noktası (Göbekteki Düğme)
+            ctx.beginPath();
+            ctx.arc(0, 0, 16, 0, Math.PI * 2);
+            ctx.fillStyle = '#e11d48';
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+
+            isSpinning = true;
+            spinBtn.disabled = true;
+            spinBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            chanceSlider.disabled = true;
+
+            // Görsel efektleri sıfırla
+            hideResultBadge();
+            statusText.textContent = "Çark dönüyor... Şansın yaver gitsin!";
+            statusText.className = "text-sm font-medium text-cyan-400 animate-pulse";
+
+            // Rastgele Dönüş Parametreleri
+            const totalRotations = 5 + Math.random() * 5; // En az 5 tam tur
+            const randomTargetAngle = Math.random() * Math.PI * 2; // Rastgele duruş açısı
+            const targetTotalAngle = arrowAngle + (totalRotations * Math.PI * 2) + randomTargetAngle;
+            
+            const duration = 4000 + Math.random() * 1000; // 4-5 saniye
+            const startTime = performance.now();
+            const startAngle = arrowAngle;
+
+            lastTickAngle = startAngle;
+
+            function animateSpin(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+
+                // Easing (Yavaşlayarak durma - Cubic Ease Out)
+                const easeOut = 1 - Math.pow(1 - progress, 3);
+                arrowAngle = startAngle + (targetTotalAngle - startAngle) * easeOut;
+
+                // Ses Tıkırtısı Efekti
+                if (Math.abs(arrowAngle - lastTickAngle) >= Math.PI / 12) {
+                    sounds.playTick();
+                    lastTickAngle = arrowAngle;
+                }
+
+                drawWheel();
+
+                if (progress < 1) {
+                    requestAnimationFrame(animateSpin);
+                } else {
+                    // Dönüş bitti, sonucu hesapla
+                    evaluateResult();
+                }
+            }
+
+            requestAnimationFrame(animateSpin);
+        }
+
+        function evaluateResult() {
+            isSpinning = false;
+            spinBtn.disabled = false;
+            spinBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            chanceSlider.disabled = false;
+
+            // Açıyı 0 - 2PI aralığına normalize et
+            let normalizedAngle = arrowAngle % (Math.PI * 2);
+            if (normalizedAngle < 0) normalizedAngle += Math.PI * 2;
+
+            // Çark çizim başlangıcı -PI/2 (Saat 12 yönü) idi.
+            // Ok açısı 0 iken saat 3 yönünü gösterir.
+            // Okun işaret ettiği alan açısını çark referansına dönüştürelim:
+            let relativeAngle = normalizedAngle - (-Math.PI / 2);
+            relativeAngle = relativeAngle % (Math.PI * 2);
+            if (relativeAngle < 0) relativeAngle += Math.PI * 2;
+
+            // Boyalı bölgenin kapladığı açı dilimi
+            const coloredAngleSpan = (chancePercentage / 100) * (2 * Math.PI);
+
+            // Kazanma Durumu Kontrolü
+            const isWin = relativeAngle <= coloredAngleSpan;
+
+            if (isWin) {
+                wins++;
+                sounds.playWin();
+                showResultBadge(true, "KAZANDIN! 🎉");
+                statusText.textContent = `Tebrikler! Ok boyalı alanda durdu (%${chancePercentage} Şans).`;
+                statusText.className = "text-sm font-semibold text-emerald-400";
+                
+                // Konfeti At
+                confetti({
+                    particleCount: 80,
+                    spread: 60,
+                    origin: { y: 0.6 }
+                });
+
+                glowRing.className = "absolute inset-0 rounded-full border-2 border-emerald-500 neon-glow-green transition-all duration-500";
+            } else {
+                losses++;
+                sounds.playLoss();
+                showResultBadge(false, "KAYBETTİN! 😢");
+                statusText.textContent = `Üzgünüm, ok boyasız alana geldi (%${chancePercentage} Şans).`;
+                statusText.className = "text-sm font-semibold text-rose-400";
+
+                glowRing.className = "absolute inset-0 rounded-full border-2 border-rose-500 neon-glow-red transition-all duration-500";
+            }
+
+            updateStats();
+            addHistoryRecord(isWin, chancePercentage);
+        }
+
+        function showResultBadge(isWin, text) {
+            resultBadge.children[0].textContent = text;
+            if (isWin) {
+                resultBadge.children[0].className = "px-6 py-2 rounded-full font-bold text-base shadow-2xl flex items-center gap-2 bg-emerald-500 text-white neon-glow-green";
+            } else {
+                resultBadge.children[0].className = "px-6 py-2 rounded-full font-bold text-base shadow-2xl flex items-center gap-2 bg-rose-600 text-white neon-glow-red";
+            }
+            resultBadge.classList.remove('opacity-0', '-translate-y-2');
+            resultBadge.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                hideResultBadge();
+            }, 3000);
+        }
+
+        function hideResultBadge() {
+            resultBadge.classList.add('opacity-0', '-translate-y-2');
+            resultBadge.classList.remove('opacity-100', 'translate-y-0');
+        }
+
+        function updateStats() {
+            document.getElementById('win-count').textContent = wins;
+            document.getElementById('loss-count').textContent = losses;
+            const total = wins + losses;
+            const rate = total > 0 ? Math.round((wins / total) * 100) : 0;
+            document.getElementById('win-rate').textContent = `%${rate}`;
+        }
+
+        function addHistoryRecord(isWin, chance) {
+            const historyList = document.getElementById('history-list');
+            
+            // Eğer ilk kayıt eklenecekse boş yazısını kaldır
+            if (wins + losses === 1) {
+                historyList.innerHTML = '';
+            }
+
+            const item = document.createElement('div');
+            item.className = `flex items-center justify-between p-2.5 rounded-xl border ${
+                isWin 
+                    ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' 
+                    : 'bg-rose-950/30 border-rose-500/30 text-rose-300'
+            } text-xs font-semibold animate-fade-in`;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            item.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid ${isWin ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-rose-400'} text-sm"></i>
+                    <span>Şans: %${chance}</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="${isWin ? 'text-emerald-400' : 'text-rose-400'}">${isWin ? 'Kazandı' : 'Kaybetti'}</span>
+                    <span class="text-gray-500 text-[10px]">${timeStr}</span>
+                </div>
+            `;
+
+            historyList.insertBefore(item, historyList.firstChild);
+        }
+
+        chanceSlider.addEventListener('input', (e) => {
+            chancePercentage = parseInt(e.target.value);
+            chanceValueDisplay.textContent = `%${chancePercentage}`;
+            drawWheel();
+        });
+
+        // Preset Butonları
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (isSpinning) return;
+                const val = btn.getAttribute('data-value');
+                chanceSlider.value = val;
+                chancePercentage = parseInt(val);
+                chanceValueDisplay.textContent = `%${chancePercentage}`;
+                drawWheel();
+            });
+        });
+
+        spinBtn.addEventListener('click', spinWheel);
+
+        // Ses Açma / Kapama
+        soundBtn.addEventListener('click', () => {
+            sounds.muted = !sounds.muted;
+            if (sounds.muted) {
+                soundBtn.innerHTML = '<i class="fa-solid fa-volume-xmark text-lg text-gray-500"></i>';
+                soundBtn.classList.remove('text-emerald-400');
+            } else {
+                soundBtn.innerHTML = '<i class="fa-solid fa-volume-high text-lg"></i>';
+                soundBtn.classList.add('text-emerald-400');
+                sounds.playTick();
+            }
+        });
+
+        // Geçmişi Temizle
+        document.getElementById('clear-history').addEventListener('click', () => {
+            document.getElementById('history-list').innerHTML = '<p class="text-xs text-gray-500 text-center py-8">Henüz çevirme yapılmadı.</p>';
+            wins = 0;
+            losses = 0;
+            updateStats();
+        });
+
+        // Sayfa yüklendiğinde çarkı ilk kez çiz
+        window.onload = () => {
+            drawWheel();
+        };
+    </script>
+</body>
+</html>
